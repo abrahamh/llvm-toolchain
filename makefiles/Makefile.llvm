@@ -1,0 +1,92 @@
+#
+# Makefile - create llvm/clang
+# Copyright (C) 2015-2016 Heiko Abraham
+# All rights reserved.
+#
+
+include Makefile.def
+
+.PHONY: build
+build:
+	$(MAKE) -f $(MAKEFILENAME) $(PREFIX)/bin/clang
+
+
+.PHONY: clean
+clean:
+	$(RM) -f $(PREFIX)/bin/clang
+	$(RM) -rf    $(BUILD_DIR)/$(LLVM_VERSION)
+	$(RM) -rf    $(BUILD_DIR)/$(LLVM_VERSION).src
+	$(RM) -rf    $(BUILD_DIR)/$(LLVM_VERSION).build
+
+
+.PHONY: install
+install:
+
+
+$(PREFIX)/bin/clang:
+	$(MAKE) -f $(MAKEFILENAME) build_clang
+
+
+.PHONY: extract_clang
+extract_clang:
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).src/tools/ && $(RM) -rf $(CLANG_VERSION) )
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).src/tools/ && $(RM) -rf $(CLANG_VERSION).src )
+	tar -xJf $(DOWNLOAD_DIR)/$(CLANG_VERSION).tar.xz -C $(BUILD_DIR)/$(LLVM_VERSION).src/tools/
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).src/tools && mv $(CLANG_VERSION).src clang )
+
+
+.PHONY: extract_lldb
+extract_lldb:
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).src/tools/ && $(RM) -rf $(LLDB_VERSION) )
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).src/tools/ && $(RM) -rf $(LLDB_VERSION).src )
+	tar -xJf $(DOWNLOAD_DIR)/$(LLDB_VERSION).tar.xz -C $(BUILD_DIR)/$(LLVM_VERSION).src/tools/
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).src/tools && mv $(LLDB_VERSION).src lldb )
+	# patch remove-debug-server
+
+
+.PHONY: build_clang
+build_clang: $(BUILD_DIR)
+	env
+	$(RM) -rf    $(BUILD_DIR)/$(LLVM_VERSION)
+	$(RM) -rf    $(BUILD_DIR)/$(LLVM_VERSION).src
+	$(RM) -rf    $(BUILD_DIR)/$(LLVM_VERSION).build
+	$(MKDIR) -p  $(BUILD_DIR)/$(LLVM_VERSION).build
+	tar -xJf $(DOWNLOAD_DIR)/$(LLVM_VERSION).tar.xz -C $(BUILD_DIR)
+	$(MAKE) -f $(MAKEFILENAME) extract_clang
+	# $(MAKE) -f $(MAKEFILENAME) extract_lldb
+	# -DLLVM_ENABLE_PROJECTS:STRING=clang;lldb;compiler-rt;lld
+	# -DLLVM_BUILD_EXTERNAL_COMPILER_RT:BOOL=ON
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).build && \
+		$(PATH_EXT) cmake ../$(LLVM_VERSION).src \
+		-G "Unix Makefiles" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=$(PREFIX) \
+		-DCMAKE_PREFIX_PATH=$(PREFIX)/prefix_path \
+		-DLLVM_TARGET_ARCH=host \
+		-DLLVM_ENABLE_PIC=True \
+		-DLLVM_ENABLE_THREADS=ON \
+		-DLLVM_ENABLE_ASSERTIONS:BOOL=OFF \
+		-DLLVM_ENABLE_CXX1Y:BOOL=ON \
+		-DLLVM_BUILD_DOCS=Off \
+		-DLLVM_BUILD_LLVM_DYLIB=ON \
+		-DLLVM_LINK_LLVM_DYLIB=ON \
+		-DLLVM_CREATE_XCODE_TOOLCHAIN:BOOL=ON \
+		-DLLVM_OPTIMIZED_TABLEGEN:BOOL=ON \
+		-DLLVM_PARALLEL_COMPILE_JOBS:STRING=$(NUM_CPUS) \
+		-DLLDB_DISABLE_LIBEDIT=1 \
+		-DLLDB_DISABLE_CURSES=1 \
+		-DLLDB_DISABLE_PYTHON=1 )
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).build && \
+		$(PATH_EXT) make $(MJOBS) )
+	( cd $(BUILD_DIR)/$(LLVM_VERSION).build && \
+		$(PATH_EXT) make install-xcode-toolchain )
+
+pack:
+	cat ../data/Info.plist | sed "s/@VERSION@/$(LLVM_VERSION_NO)/" > \
+		$(PREFIX)/Toolchains/LLVM$(LLVM_VERSION_NO).xctoolchain/ToolchainInfo.plist
+	( cd $(PREFIX)/Toolchains && tar -f $(CURRENT_DIR)/../llvm_$(LLVM_VERSION_NO).tar.gz -cpz LLVM*.xctoolchain )
+
+install:
+	rm -rf $(HOME)/Library/Developer/Toolchains/LLVM$(LLVM_VERSION_NO).xctoolchain
+	$(MKDIR) -p  $(HOME)/Library/Developer/Toolchains/
+	tar -xzf ../llvm_$(LLVM_VERSION_NO).tar.gz -C $(HOME)/Library/Developer/Toolchains/
