@@ -4,7 +4,7 @@ Xcode project to build an custom toolchain for Xcode based on llvm/clang.
 # Features
 - [x] makefile based project to build own custom toolchain for macOS
 - [x] one makefile to define used versions (Makefile.def)
-- [x] download required source (i.e. binutils, llvm ...)
+- [x] download required source (i.e. cmake, llvm ...)
 
 # Usage
 0. Adapt PROXY_SETTINGS_HTTP (Makefile.dlf) if you want to use proxy settings.
