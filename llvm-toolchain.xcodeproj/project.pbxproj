@@ -84,7 +84,7 @@
 			dependencies = (
 			);
 			name = download;
-			passBuildSettingsInEnvironment = 0;
+			passBuildSettingsInEnvironment = 1;
 			productName = download;
 		};
 		428D31141E1B0A49007ACBAB /* cmake */ = {
